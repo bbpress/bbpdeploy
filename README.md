@@ -1,4 +1,4 @@
-## BuddyPress deployment script
+## bbPress deployment script
 
 *Not* intended for general use. Could be very dangerous. Do not even look at it, or your eyeballs might turn to dust.
 
