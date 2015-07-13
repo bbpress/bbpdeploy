@@ -43,7 +43,7 @@ if [ $dryrun -eq 0 ]; then
 	fi
 fi
 
-echo "Preparing BuddyPress $ver from source branch $branch."
+echo "Preparing bbPress $ver from source branch $branch."
 
 if [ $dryrun -eq 0 ]; then
 	echo "*** This is NOT a dry run ***"
@@ -51,18 +51,18 @@ else
 	echo "*** This is a dry run ***"
 fi
 
-# Set up the buddypress.svn checkout.
+# Set up the bbpress.svn checkout.
 if [ $use_existing_checkouts -eq 0 ]; then
 	echo "Getting a checkout of the $branch branch."
-	# Remove existing bp working directory.
-	if [ -d "bp" ]; then
-		rm -rf ./bp
+	# Remove existing bbp working directory.
+	if [ -d "bbp" ]; then
+		rm -rf ./bbp
 	fi
 
 	# Get a checkout of the branch.
-	svn co http://buddypress.svn.wordpress.org/branches/$branch bp
+	svn co http://bbpress.svn.wordpress.org/branches/$branch bbp
 else
-	if [[ ! -d 'bp' ]] || [[ ! -f 'bp/Gruntfile.js' ]]; then
+	if [[ ! -d 'bbp' ]] || [[ ! -f 'bbp/Gruntfile.js' ]]; then
 		echo "No checkout found. Please try again without the -e flag."
 		exit 1
 	else
@@ -70,17 +70,17 @@ else
 	fi
 fi
 
-cd bp
+cd bbp
 
 # Version number replacements.
-# Version: x.y.z in bp-loader.php
+# Version: x.y.z in bbpress.php
 ver_regex='s/\(^ \* Version\:\s\+\)\([0-9\.]\+\)/\1'"$ver"/
-sed -i "{$ver_regex}" bp-loader.php
-sed -i "{$ver_regex}" src/bp-loader.php
+sed -i "{$ver_regex}" bbpress.php
+sed -i "{$ver_regex}" src/bbpress.php
 
-# $this->version in bp-loader.php
+# $this->version in bbpress.php
 inline_ver_regex="s/\(\$this\->version\s\+= '\)[0-9\.]\+/\1""$ver"/
-sed -i "{$inline_ver_regex}" src/bp-loader.php
+sed -i "{$inline_ver_regex}" src/bbpress.php
 
 # Stable tag in readme.txt
 stable_regex='s/\(^Stable tag\:\s\+\)\([0-9\.]\+\)/\1'"$ver"/
@@ -91,16 +91,16 @@ sed -i "{$stable_regex}" src/readme.txt
 already=$( grep -c "= $ver =" src/readme.txt )
 if [ $already -eq 0 ]; then
 	ver_hyphens="$(sed -e "s/\./-/g" <<< "$ver")"
-	see="\n\n= $ver =\nSee: https:\/\/codex.buddypress.org\/releases\/version-$ver_hyphens\/"
+	see="\n\n= $ver =\nSee: https:\/\/codex.bbpress.org\/releases\/version-$ver_hyphens\/"
 
 	upgrade_regex='s/\(\(Upgrade Notice\|Changelog\).*\)/\1'"$see"/g
 	sed -i "{$upgrade_regex}" src/readme.txt
 
-	# $this->db_version in bp-loader.php should also only be updated when necessary.
-	lastrev="$(svn log -l 1 http://buddypress.svn.wordpress.org | grep -oP "^r([0-9]+) \| ")"
+	# $this->db_version in bbpress.php should also only be updated when necessary.
+	lastrev="$(svn log -l 1 http://bbpress.svn.wordpress.org | grep -oP "^r([0-9]+) \| ")"
 	lastrev="$(sed -e "s/[^0-9]//g" <<< "$lastrev")"
 	db_ver_regex="s/\(\$this\->db_version\s\+= \)[0-9\.]\+/\1""$lastrev"/
-	sed -i "{$db_ver_regex}" src/bp-loader.php
+	sed -i "{$db_ver_regex}" src/bbpress.php
 fi
 
 echo "Version numbers bumped to $ver."
@@ -108,7 +108,7 @@ echo "Version numbers bumped to $ver."
 # Commit version bumps.
 commit_message_bump="Bumping version numbers to $ver."
 if [ $dryrun -eq 0 ]; then
-	read -n 1 -p "Ready to commit and tag in buddypress.svn.wordpress.org? (y/n)? " answer
+	read -n 1 -p "Ready to commit and tag in bbpress.svn.wordpress.org? (y/n)? " answer
 	echo ""
 	if [ "$answer" != 'y' ]; then
 		echo "Are you yaller?"
@@ -119,13 +119,13 @@ else
 	echo "DRY RUN: svn ci -m \"$commit_message_bump\""
 fi
 
-# Create buddypress.svn.wordpress.org tag.
+# Create bbpress.svn.wordpress.org tag.
 commit_message_tag="Create tag $ver."
 echo "Creating tag."
 if [ $dryrun -eq 0 ]; then
-	svn cp http://buddypress.svn.wordpress.org/branches/$branch http://buddypress.svn.wordpress.org/tags/$ver -m "$commit_message_tag"
+	svn cp http://bbpress.svn.wordpress.org/branches/$branch http://bbpress.svn.wordpress.org/tags/$ver -m "$commit_message_tag"
 else
-	echo "DRY RUN: svn cp http://buddypress.svn.wordpress.org/branches/$branch http://buddypress.svn.wordpress.org/tags/$ver -m \"$commit_message_tag\""
+	echo "DRY RUN: svn cp http://bbpress.svn.wordpress.org/branches/$branch http://bbpress.svn.wordpress.org/tags/$ver -m \"$commit_message_tag\""
 fi
 
 # Build the release.
@@ -141,16 +141,11 @@ if [ $use_existing_checkouts -eq 0 ]; then
 		rm -rf ./wporg
 	fi
 
-	svn co --ignore-externals http://plugins.svn.wordpress.org/buddypress/trunk wporg
+	svn co --ignore-externals http://plugins.svn.wordpress.org/bbpress/trunk wporg
 fi
 
-# Sync the changes from the bporg checkout to the wporg checkout.
-rsync -r --exclude='.svn' bp/src/ wporg/
-
-# Remove bbPress from the checkout and set the external (should already be done, but just in case).
-cd wporg
-rm -rf bp-forums/bbpress
-svn propset svn:externals 'bbpress https://bbpress.svn.wordpress.org/tags/1.2/' bp-forums
+# Sync the changes from the bbporg checkout to the wporg checkout.
+rsync -r --exclude='.svn' bbp/src/ wporg/
 
 # Before committing, roll back the readme, so that the stable tag is not changed.
 svn diff readme.txt > ../readme.diff
@@ -173,11 +168,11 @@ else
 fi
 
 # svn cp to the new tag
-# Create buddypress.svn.wordpress.org tag.
+# Create bbpress.svn.wordpress.org tag.
 commit_message_tag="Create tag $ver."
 echo "Creating tag."
 if [ $dryrun -eq 0 ]; then
-	svn cp http://plugins.svn.wordpress.org/buddypress/trunk http://plugins.svn.wordpress.org/buddypress/tags/$ver -m "$commit_message_tag"
+	svn cp http://plugins.svn.wordpress.org/bbpress/trunk http://plugins.svn.wordpress.org/bbpress/tags/$ver -m "$commit_message_tag"
 else
 	echo "DRY RUN: svn cp http://plugins.svn.wordpress.org/buddypres/trunk http://plugins.svn.wordpress.org/tags/$ver -m \"$commit_message_tag\""
 fi
